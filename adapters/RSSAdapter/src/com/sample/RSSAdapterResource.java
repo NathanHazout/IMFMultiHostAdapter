@@ -15,6 +15,7 @@ package com.sample;
 
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.util.HashMap;
 import java.util.logging.Logger;
 
 import javax.servlet.ServletOutputStream;
@@ -44,32 +45,40 @@ public class RSSAdapterResource {
 	/*
 	 * For more info on JAX-RS see https://jsr311.java.net/nonav/releases/1.1/index.html
 	 */
-	
+
 	//Define logger (Standard java.util.Logger)
     static Logger logger = Logger.getLogger(RSSAdapterResource.class.getName());
 
     //Define the server api to be able to perform server operations
     WLServerAPI api = WLServerAPIProvider.getWLServerAPI();
-    
+
 	private static CloseableHttpClient client;
-	private static HttpHost cnnHost, engadgetHost;
+	private static HashMap<String, HttpHost> hosts;
+	private static HashMap<String, String> paths;
 
 	public static void init() {
 		client = HttpClients.createDefault();
-		cnnHost = new HttpHost("rss.cnn.com");
-		engadgetHost = new HttpHost("www.engadget.com");
+
+		hosts = new HashMap<String, HttpHost>();
+		hosts.put("cnn", new HttpHost("rss.cnn.com"));
+		hosts.put("engadget", new HttpHost("www.engadget.com"));
+		
+		paths = new HashMap<String, String>();
+		paths.put("cnn", "/rss/edition.rss");
+		paths.put("engadget", "/rss.xml");
+
 	}
 
 	public void execute(HttpUriRequest req, HttpServletResponse resultResponse, HttpHost host)
 			throws ClientProtocolException, IOException,
 			IllegalStateException, SAXException {
-		HttpResponse RSSResponse = client.execute(host, req); 
+		HttpResponse RSSResponse = client.execute(host, req);
 		ServletOutputStream os = resultResponse.getOutputStream();
-		if (RSSResponse.getStatusLine().getStatusCode() == HttpStatus.SC_OK){	
+		if (RSSResponse.getStatusLine().getStatusCode() == HttpStatus.SC_OK){
 			resultResponse.addHeader("Content-Type", "application/json");
 			String json = XML.toJson(RSSResponse.getEntity().getContent());
 			os.write(json.getBytes(Charset.forName("UTF-8")));
-			
+
 		}else{
 			resultResponse.setStatus(RSSResponse.getStatusLine().getStatusCode());
 			RSSResponse.getEntity().getContent().close();
@@ -81,17 +90,18 @@ public class RSSAdapterResource {
 
 	@GET
 	@Produces("application/json")
-	public void get(@Context HttpServletResponse response, @QueryParam("host") String host)
+	public void get(@Context HttpServletResponse response, @QueryParam("host") String hostKeyword)
 			throws ClientProtocolException, IOException, IllegalStateException, SAXException {
+
 		
-		if(host!=null && host.equals("cnn")){
-			execute(new HttpGet("/rss/edition.rss"), response, cnnHost);
+		if(hostKeyword!=null && hosts.containsKey(hostKeyword) && paths.containsKey(hostKeyword)){
+			execute(new HttpGet(paths.get(hostKeyword)), response, hosts.get(hostKeyword));
 		}
 		else{
-			//Defaults to engadget
-			execute(new HttpGet("/rss.xml"), response, engadgetHost);
+			response.setStatus(404);
+			response.flushBuffer();
 		}
-		
+
 	}
 
 }

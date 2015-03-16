@@ -12,7 +12,7 @@
  */
 
 var busyIndicator = null;
-var host = "";
+var host = "engadget";
 
 function wlCommonInit(){
 	busyIndicator = new WL.BusyIndicator();
